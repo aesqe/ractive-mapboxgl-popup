@@ -1,7 +1,7 @@
 # Ractive Mapbox GL popup
-A Mapbox GL popup component for Ractive
+A [Mapbox GL](https://www.mapbox.com/mapbox-gl-js/api/) popup component for [Ractive](https://github.com/ractivejs/ractive)
 
-[Demo on GitHub pages](http://aesqe.github.io/ractive-mapboxgl-popup/)
+[Demo on GitHub pages](http://aesqe.github.io/ractive-mapboxgl-popup/) (uses [Ractive.load](https://github.com/ractivejs/ractive-load) to fetch component data).
 
 --
 
