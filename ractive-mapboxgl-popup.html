@@ -1,0 +1,91 @@
+<div class="mapboxgl-popup {{anchorPosition}}" style="{{transform}}">
+	<div class="mapboxgl-popup-tip"></div>
+	<div class="mapboxgl-popup-content">
+		{{#with popupContent}}
+			{{>getPartial}}
+		{{/with}}
+	</div>
+</div>
+
+<script>
+	component.exports = {
+
+		data: function()
+		{
+			return {
+				map: null,
+				marker: null,
+				popupContent: "",
+				partialName: "",
+				transform: "",
+				anchorPosition: "",
+				anchorTranslate: {
+					"top": "translate(-50%,0)",
+					"top-left": "translate(0,0)",
+					"top-right": "translate(-100%,0)",
+					"bottom": "translate(-50%,-100%)",
+					"bottom-left": "translate(0,-100%)",
+					"bottom-right": "translate(-100%,-100%)",
+					"left": "translate(0,-50%)",
+					"right": "translate(-100%,-50%)"
+				}
+			}
+		},
+
+		computed: {
+			getPartial: function() {
+				return this.get("partialName");
+			}
+		},
+
+		oninit: function() {
+			this.get("map").on("move", this.updatePosition.bind(this));
+		},
+
+		onteardown: function() {
+			this.get("map").off("move", this.updatePosition.bind(this));
+		},
+
+		// Mapbox original: https://github.com/mapbox/mapbox-gl-js/blob/master/js/ui/popup.js#L170
+		updatePosition: function()
+		{
+			var lngLat = this.get("marker.geometry.coordinates");
+			
+			if( lngLat )
+			{
+				var map = this.get("map");
+				var container = this.find(".mapboxgl-popup");
+				var pos = map.project([lngLat[0], lngLat[1]]).round();
+				var popupHeight = container.offsetHeight;
+				var popupWidth = container.offsetWidth;
+				var mapWidth = map.transform.width;
+				var mapHeight = map.transform.height;
+				var anchor = [];
+
+				if( pos.y * 2 < mapHeight ) {
+					anchor = ["top"];
+				} else if( pos.y > mapHeight - popupHeight ) {
+					anchor = ["bottom"];
+				}
+
+				if( pos.x < mapWidth / 4 ) {
+					anchor.push("left");
+				} else if( pos.x > mapWidth - popupWidth / 2 ) {
+					anchor.push("right");
+				}
+
+				if( anchor.length === 0 ) {
+					anchor = "bottom";
+				} else {
+					anchor = anchor.join("-");
+				}
+
+				var translateAnchor = this.get("anchorTranslate." + anchor);
+				var translatePopup = " translate(" + pos.x + "px," + pos.y + "px)";
+
+				this.set("anchorPosition", "mapboxgl-popup-anchor-" + anchor);
+				this.set("transform", "transform: " + translateAnchor + translatePopup);
+			}
+		}
+	};
+</script>

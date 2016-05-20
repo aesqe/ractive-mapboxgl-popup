@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<title>Ractive - Mapbox GL popup component</title>
+	<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v0.18.0/mapbox-gl.css">
+	<script type="text/javascript" src="https://api.mapbox.com/mapbox-gl-js/v0.18.0/mapbox-gl.js"></script>
+	<script type="text/javascript" src="http://cdn.ractivejs.org/edge/ractive.min.js"></script>
+	<script type="text/javascript" src="https://cdn.jsdelivr.net/ractive.load/latest/ractive-load.min.js"></script>
+</head>
+<body>
+
+	<div id="demo"></div>
+
+	<script type="text/ractive" id="template">
+		<div id="mapbox" style="width: 750px; height: 400px">
+			{{#if selectedMarker.marker !== null}}
+				{{#with selectedMarker}}
+					<mapboxglPopup 
+						marker="{{marker}}"
+						map="{{map}}" 
+						popupContent="{{marker.properties.description}}" 
+						partialName="popupTemplate" />
+				{{/with}}
+			{{/if}}
+		</div>
+
+		{{#partial popupTemplate}}
+			<div class="marker-description">
+				{{popupContent}}
+			</div>
+		{{/partial}}
+	</script>
+
+	<script type="text/javascript">
+		mapboxgl.accessToken = "pk.eyJ1IjoiYWVzcWUiLCJhIjoiY2lmNGVxYnNnMDNrenJya2xzbmQ4M281bCJ9.GfMJ8R2NX1dDcc9Hs2PO3A";
+
+		var app;
+		var markers = [
+			{
+				"type": "Feature",
+				"properties": {
+					"marker-symbol": "theatre",
+					"description": "I'm a theatre"
+				},
+				"geometry": {
+					"type": "Point",
+					"coordinates": [-77.003168, 38.894651]
+				}
+			},
+			{
+				"type": "Feature",
+				"properties": {
+					"marker-symbol": "bar",
+					"description": "I'm a bar"
+				},
+				"geometry": {
+					"type": "Point",
+					"coordinates": [-77.090372, 38.881189]
+				}
+			},
+			{
+				"type": "Feature",
+				"properties": {
+					"marker-symbol": "bicycle",
+					"description": "I am bicycle?"
+				},
+				"geometry": {
+					"type": "Point",
+					"coordinates": [-77.052477, 38.943951]
+				}
+			},
+			{
+				"type": "Feature",
+				"properties": {
+					"marker-symbol": "music",
+					"description": "Party music!"
+				},
+				"geometry": {
+					"type": "Point",
+					"coordinates": [-77.031706, 38.914581]
+				}
+			}];
+
+		Ractive.load("ractive-mapboxgl-popup.html").then(function(mapboxglPopup)
+		{
+			app = new Ractive({
+				el: "#demo",
+				template: "#template",
+
+				components: {
+					mapboxglPopup: mapboxglPopup
+				},
+
+				data: {
+					map: null,
+					selectedMarker: null
+				},
+
+				onconfig: function()
+				{
+					this.on("selectMarker", this.selectMarker);
+					this.set("markers", markers);
+				},
+
+				onrender: function()
+				{
+					var map = new mapboxgl.Map({
+						container: "mapbox",
+						style: "mapbox://styles/mapbox/streets-v8",
+						center: [-77.04, 38.907],
+						zoom: 11.15
+					});
+
+					map.on("style.load", this.onMapStyleLoaded.bind(this));
+
+					this.set("map", map);
+				},
+
+				onMapStyleLoaded: function()
+				{
+					var self = this;
+					var map = this.get("map");
+
+					this.addMarkersLayer(this.get("markers"));
+
+					map.on("click", function(e)
+					{
+						var marker = null;
+						var features = map.queryRenderedFeatures(e.point, {
+							radius: 7.5,
+							includeGeometry: true,
+							layers: ["markers"]
+						});
+
+						if( features.length ) {
+							marker = self.findClosestMarker(features[0]);
+						}
+
+						self.selectMarker(marker);
+					});
+
+					map.on("mousemove", function(e)
+					{
+						var features = map.queryRenderedFeatures(e.point, {
+							radius: 7.5,
+							includeGeometry: true,
+							layers: ["markers"]
+						});
+
+						map.getCanvas().style.cursor = (features.length) ? "pointer" : "";
+					});
+				},
+
+				addMarkersLayer: function( markers )
+				{
+					var map = this.get("map");
+
+					map.addSource("markers", {
+						"type": "geojson",
+						"data": {
+							"type": "FeatureCollection",
+							"features": markers
+						}
+					});
+
+					map.addLayer({
+						"id": "markers",
+						"type": "symbol",
+						"source": "markers",
+						"interactive": true,
+						"layout": {
+							"icon-image": "{marker-symbol}-15",
+							"text-field": "{title}",
+							"text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+							"text-offset": [0, 0.6],
+							"text-anchor": "top"
+						}
+					});
+				},
+
+				selectMarker: function( marker )
+				{
+					this.set("selectedMarker", {
+						marker: marker,
+						map: this.get("map")
+					});
+
+					if( marker !== null )
+					{
+						this.findAllComponents("mapboxglPopup").forEach(function(c){
+							c.updatePosition();
+						});
+					}
+				},
+
+				getDistance: function ( a, b )
+				{
+					return Math.pow(Math.abs(a[0] - b[0]), 2) + Math.pow(Math.abs(a[1] - b[1]), 2);
+				},
+
+				findClosestMarker: function( feature )
+				{
+					var self = this;
+					var featCoords = feature.geometry.coordinates;
+					var closest = this.get("markers").reduce(function(prev, curr, i, arr)
+					{
+						var distance = self.getDistance(featCoords, curr.geometry.coordinates);
+						
+						if( prev.distance > distance ) {
+							return {marker: curr, distance: distance};
+						}
+
+						return prev;
+					}, {marker: null, distance: Number.POSITIVE_INFINITY});
+
+					return closest.marker;
+				}
+			});
+		});
+
+			
+	</script>
+	
+</body>
+</html>
